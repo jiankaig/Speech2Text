@@ -2,10 +2,9 @@ import librosa
 import torch
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Tokenizer
 from tqdm import tqdm
-
-
 from functools import wraps
 from time import time
+import torch.nn as nn
 
 class Wave2Vec2:
     
@@ -20,11 +19,19 @@ class Wave2Vec2:
         return wrap
 
     @timing
-    def __init__(self, pretrained_model_name_or_path="facebook/wav2vec2-base-960h"):
+    def __init__(self, 
+        pretrained_model_name_or_path="facebook/wav2vec2-base-960h", 
+        multi_gpu_enabled=True):
+
         self.tokenizer = Wav2Vec2Tokenizer.from_pretrained(pretrained_model_name_or_path)
         self.model = Wav2Vec2ForCTC.from_pretrained(pretrained_model_name_or_path)
-        self.device = torch.device('cuda')
-        self.model.to(self.device)
+        # self.device = torch.device('cuda')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if multi_gpu_enabled and torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            self.model = nn.DataParallel(self.model,[0,1]).to(self.device)
+        else:
+            self.model.to(self.device)
         print("[INFO] model initialized..")
     
     @timing
