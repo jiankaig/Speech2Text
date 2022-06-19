@@ -3,14 +3,31 @@ import torch
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Tokenizer
 from tqdm import tqdm
 
+
+from functools import wraps
+from time import time
+
 class Wave2Vec2:
+    
+    def timing(f):
+        @wraps(f)
+        def wrap(*args, **kw):
+            ts = time()
+            result = f(*args, **kw)
+            te = time()
+            print(f"[INFO] func:{f.__name__} args:[{args}, {kw}] took: {te-ts:4f} sec")
+            return result
+        return wrap
+
+    @timing
     def __init__(self, pretrained_model_name_or_path="facebook/wav2vec2-base-960h"):
         self.tokenizer = Wav2Vec2Tokenizer.from_pretrained(pretrained_model_name_or_path)
         self.model = Wav2Vec2ForCTC.from_pretrained(pretrained_model_name_or_path)
         self.device = torch.device('cuda')
         self.model.to(self.device)
         print("[INFO] model initialized..")
-        
+    
+    @timing
     def load_wav_file(self, filename):
         speech, rate = librosa.load(filename,sr=16000)
         encoded_audio = self.tokenizer(speech, return_tensors = 'pt').input_values
@@ -18,6 +35,7 @@ class Wave2Vec2:
         print("[INFO] wav file vectorized..")
         return encoded_audio
     
+    @timing
     def predict(self, encoded_audio, BATCH_SIZE=64,ignoreLast=False):
         try:
             SPILT_SIZE = encoded_audio.shape[1] // (BATCH_SIZE-1)
